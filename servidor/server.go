@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/pcbrsites/golang-cotacao/servidor/db"
@@ -15,7 +15,7 @@ func main() {
 	db.InitDB()
 	http.HandleFunc("/cotacao", handleCotacao)
 
-	fmt.Println("Servidor iniciado na porta http://0.0.0.0:8080/cotacao")
+	log.Println("Servidor iniciado na porta http://0.0.0.0:8080/cotacao")
 	http.ListenAndServe(":8080", nil)
 
 }
