@@ -1,0 +1,32 @@
+services:
+
+  service:
+    container_name: service
+    build:
+      context: servidor
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./cotacao.db:/app/cotacao.db
+    networks:
+      - golang-networks
+
+  cliente:
+    container_name: cliente
+    build:
+      context: cliente
+      dockerfile: Dockerfile
+    environment:
+      - URL_COTACAO=http://service:8080/cotacao
+    command: [ "sh", "-c", "while ! nc -z service 8080; do sleep 1; done; ./cliente; ls; sleep 5; cat cotacao.txt" ]
+    volumes:
+      - ./cotacao.txt:/app/cotacao.txt
+    networks:
+      - golang-networks
+    depends_on:
+      - service
+
+networks:
+  golang-networks:
+    driver: bridge

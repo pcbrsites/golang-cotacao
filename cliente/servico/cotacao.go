@@ -1,0 +1,83 @@
+package servico
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"time"
+)
+
+type Cotacao struct {
+	Bid string `json:"bid"`
+}
+
+type CotacaoErro struct {
+	StatusCode int    `json:"status_code"`
+	Error      string `json:"error"`
+	Message    string `json:"message"`
+}
+
+func getUrlCotacao() string {
+	if os.Getenv("URL_COTACAO") != "" {
+		return os.Getenv("URL_COTACAO")
+	}
+	return "http://localhost:8080/cotacao"
+}
+
+func GetCotacaoDolarReal() (*Cotacao, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", getUrlCotacao(), nil)
+
+	if err != nil {
+		return nil, fmt.Errorf("erro na criação da requisição: %v", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("erro na requisição: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var erro CotacaoErro
+		fmt.Println("Status Code:", resp.StatusCode)
+		fmt.Println("Status:", resp.Status)
+
+		contentType := resp.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			return nil, fmt.Errorf("erro http: %d, formato: %s", resp.StatusCode, contentType)
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&erro); err != nil {
+			return nil, fmt.Errorf("erro ao decodificar resposta de erro: %v status: %d", err, resp.StatusCode)
+		}
+		return nil, fmt.Errorf("erro na requisição: %s status: %d", erro.Message, erro.StatusCode)
+	}
+
+	var cotacao Cotacao
+	if err := json.NewDecoder(resp.Body).Decode(&cotacao); err != nil {
+		return nil, fmt.Errorf("erro ao decodificar resposta: %v, status:: %d", err, resp.StatusCode)
+	}
+	return &cotacao, nil
+
+}
+
+func (cotacao *Cotacao) SalvarCotacaoArquivo() error {
+	file, err := os.Create("cotacao.txt")
+	if err != nil {
+		return fmt.Errorf("erro ao criar arquivo: %v", err)
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(fmt.Sprintf("Dólar: %s\n", cotacao.Bid))
+
+	if err != nil {
+		return fmt.Errorf("erro ao escrever no arquivo: %v", err)
+	}
+	fmt.Println("Cotação salva em cotacao.txt")
+	return nil
+}
